@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-BOT_TOKEN = 1094610360:AAETQKhsCWfC6QsttTCUd1JKzQrAcTLzo_8
+BOT_TOKEN = "1094610360:AAETQKhsCWfC6QsttTCUd1JKzQrAcTLzo_8"
 
 # ── All 30 Questions ───────────────────────────────────────────────────────────
 # answer = 0 means option a, 1 means option b, 2 means option c
