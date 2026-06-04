@@ -1,4 +1,6 @@
 import logging
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -17,8 +19,6 @@ logging.basicConfig(
 BOT_TOKEN = "1094610360:AAETQKhsCWfC6QsttTCUd1JKzQrAcTLzo_8"
 
 # ── All 30 Questions ───────────────────────────────────────────────────────────
-# answer = 0 means option a, 1 means option b, 2 means option c
-
 QUESTIONS = [
     # ── Grammar (Q1–Q15) ──────────────────────────────────────────────────────
     {
@@ -174,8 +174,44 @@ QUESTIONS = [
     },
 ]
 
-# ── Conversation state ─────────────────────────────────────────────────────────
 ASKING = 0
+
+WELCOME_MESSAGE = """✴️ خوش اومدین به قدیمی ترین مجموعه زبان ایران _ موسسه اساطیر زبان📘📕
+
+🔹 این آزمون تعیین سطح شامل سی تست از سطح "پایه تا پیشرفته" هست
+
+اگر نمره شما:
+۱ _ ۱۰ ⬅️ سطح شما پایه (beginner)
+۱۱ _ ۱۵ ⬅️ متوسط رو به پایین (pre_inter)
+۱۶ _ ۲۰ ⬅️ متوسط (intermediate)
+۲۱ _ ۲۵ ⬅️ متوسط رو به بالا (upper_inter)
+۲۶ _ ۳۰ ⬅️ پیشرفته (advanced)
+
+🔴 در حین آزمون از هیچ دیکشنری و کمکی استفاده نکنید تا نمره واقعی شما مشخص بشه"""
+
+FINAL_MESSAGE = """بریک میگم. آزمون رو به اتمام رسوندی 🎉❇️
+
+✍️ نمره شما {score} از ۳۰
+
+نمره ای که گرفتی رو به آیدی زیر:
+@asatirezabanhelp
+ارسال کن تا مشاوره رایگان زبان دریافت کنی ✅"""
+
+
+# ── Health check server (keeps Render happy) ──────────────────────────────────
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        pass  # silence health check logs
+
+
+def run_health_server():
+    server = HTTPServer(("0.0.0.0", 8080), HealthHandler)
+    server.serve_forever()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -203,12 +239,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["score"] = 0
     context.user_data["question_index"] = 0
 
-    await update.message.reply_text(
-        "👋 Welcome to the POC English Level Test!\n\n"
-        "You will answer 30 questions.\n"
-        "Take your time and choose the best answer for each one.\n\n"
-        "Let's begin! 🚀"
-    )
+    await update.message.reply_text(WELCOME_MESSAGE)
     await send_question(update, context)
     return ASKING
 
@@ -228,13 +259,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     if context.user_data["question_index"] >= len(QUESTIONS):
         score = context.user_data["score"]
-        await query.message.reply_text(
-            f"🎉 Congratulations! You have completed the test!\n\n"
-            f"You answered {score} out of 30 questions correctly.\n\n"
-            f"Would you like a personalised consultation to find out your exact English level "
-            f"and get a tailored study plan?\n\n"
-            f"👉 Contact our consultant here: @asatirezaban_poshtiban"
-        )
+        await query.message.reply_text(FINAL_MESSAGE.format(score=score))
         return ConversationHandler.END
 
     await send_question(update, context)
@@ -243,6 +268,10 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main() -> None:
+    # Start health check server in background so Render doesn't time out
+    health_thread = threading.Thread(target=run_health_server, daemon=True)
+    health_thread.start()
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
