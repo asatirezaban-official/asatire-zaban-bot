@@ -16,7 +16,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-BOT_TOKEN = "1094610360:AAETQKhsCWfC6QsttTCUd1JKzQrAcTLzo_8"
+BOT_TOKEN = "1094610360:AAGn4Q48UEAS1aiBVXlCL3EeFHR4AM5uU_g"
 
 QUIZ_TIME_LIMIT = 600  # 10 minutes in seconds
 
